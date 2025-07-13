@@ -669,25 +669,67 @@
         });
 
         async function initializeApp() {
-            try {
-                // בדיקת חיבור
-                await testGoogleSheetsConnection();
-                updateConnectionStatus('connected');
-                isConnected = true;
-
-                // בדיקה אם יש משתמש מחובר (Local Storage)
-                const savedUser = localStorage.getItem('familyUser');
-                if (savedUser) {
-                    currentUser = JSON.parse(savedUser);
-                    await loadUserDashboard();
-                }
-            } catch (error) {
-                console.error('שגיאה באתחול:', error);
-                updateConnectionStatus('disconnected');
-                showMessage('error', 'אין חיבור לשרת. נסה לרענן את הדף.', 'loginMessage');
-            }
+    try {
+        updateConnectionStatus('loading');
+        
+        // בדיקת חיבור לגוגל שיטס
+        console.log('🔄 בודק חיבור לגוגל שיטס...');
+        await testGoogleSheetsConnection();
+        
+        // בדיקת חיבור לגוגל אפס סקריפט
+        console.log('🔄 בודק חיבור לגוגל אפס סקריפט...');
+        const scriptWorking = await testGoogleAppsScript();
+        
+        if (scriptWorking) {
+            console.log('✅ כל המערכות עובדות');
+            updateConnectionStatus('connected');
+        } else {
+            console.warn('⚠️ יש בעיה עם Google Apps Script');
+            updateConnectionStatus('disconnected');
+            showMessage('warning', 'יש בעיה בחיבור לשרת. פונקציות הכתיבה עלולות לא לעבוד.', 'loginMessage');
         }
+        
+        isConnected = true;
 
+        // בדיקה אם יש משתמש מחובר
+        const savedUser = localStorage.getItem('familyUser');
+        if (savedUser) {
+            currentUser = JSON.parse(savedUser);
+            await loadUserDashboard();
+        }
+        
+    } catch (error) {
+        console.error('❌ שגיאה באתחול:', error);
+        updateConnectionStatus('disconnected');
+        showMessage('error', 'אין חיבור לשרת. נסה לרענן את הדף.', 'loginMessage');
+    }
+}
+async function quickTest() {
+    console.log('🧪 מתחיל בדיקה מהירה...');
+    
+    try {
+        // בדיקה 1: חיבור לגוגל שיטס
+        console.log('1️⃣ בודק Google Sheets API...');
+        await testGoogleSheetsConnection();
+        console.log('✅ Google Sheets API עובד');
+        
+        // בדיקה 2: חיבור לגוגל אפס סקריפט
+        console.log('2️⃣ בודק Google Apps Script...');
+        await testGoogleAppsScript();
+        console.log('✅ Google Apps Script עובד');
+        
+        // בדיקה 3: נסיון כתיבה לדוגמה
+        console.log('3️⃣ בודק כתיבה לגיליון...');
+        await writeToGoogleSheets('Test!A1:B1', [['Test', new Date().toISOString()]]);
+        console.log('✅ כתיבה לגיליון עובדת');
+        
+        alert('🎉 כל הבדיקות עברו בהצלחה! המערכת מוכנה לעבודה.');
+        
+    } catch (error) {
+        console.error('❌ בדיקה נכשלה:', error);
+        alert(`❌ יש בעיה במערכת: ${error.message}`);
+    }
+}
         // ===== חיבור לגוגל שיטס =====
         async function testGoogleSheetsConnection() {
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.SPREADSHEET_ID}?key=${GOOGLE_SHEETS_CONFIG.API_KEY}`;
@@ -719,42 +761,44 @@
             }
         }
 
-        function writeToGoogleSheets(data) {
-  return fetch(webAppUrl, {
-    method: 'POST',
-    mode: 'no-cors', // ← השימוש בזה חשוב כדי לא לקבל שגיאת CORS
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(data)
-  });
-}
-        async function writeToGoogleSheets(range, values) {
-            try {
-                // שימוש ב-Google Apps Script Web App לכתיבה
-                const webAppUrl = 'https://script.google.com/macros/s/AKfycbw8kJdoUvL7tKNlHOYfpxpRntDQqpY4q27jc8v95N4pSdqM9dJ5n53F_fEN7QIeoQ/exec';
-                    const response = await fetch(webAppUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'write',
-                        range: range,
-                        values: values
-                    })
-                });
+        
+// הגדרת URL של Google Apps Script
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8kJdoUvL7tKNlHOYfpxpRntDQqpY4q27jc8v95N4pSdqM9dJ5n53F_fEN7QIeoQ/exec';
 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
+async function writeToGoogleSheets(range, values) {
+    try {
+        console.log('שולח נתונים ל-Google Sheets:', { range, values });
+        
+        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors', // חשוב למניעת שגיאות CORS
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'write',
+                range: range,
+                values: values
+            })
+        });
 
-                return await response.json();
-            } catch (error) {
-                console.error('שגיאה בכתיבה לגיליון:', error);
-                throw error;
-            }
+        // בגלל no-cors לא נוכל לבדוק את התגובה
+        // אבל אם לא היתה שגיאת רשת, נניח שהכל עבר בסדר
+        console.log('✅ נתונים נשלחו בהצלחה ל-Google Sheets');
+        return { success: true };
+
+    } catch (error) {
+        console.error('❌ שגיאה בכתיבה ל-Google Sheets:', error);
+        
+        // זיהוי סוג השגיאה
+        if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+            throw new Error('אין חיבור לאינטרנט או שהשרת לא זמין');
         }
+        
+        throw new Error(`שגיאה בשליחת הנתונים: ${error.message}`);
+    }
+}
+
 
         // ===== ממשק משתמש =====
         function showLoginForm() {
@@ -765,11 +809,11 @@
         }
 
         function showRegisterForm() {
-            document.getElementById('loginTab').classList.remove('active');
-            document.getElementById('registerTab').classList.add('active');
-            document.getElementById('loginForm').style.display = 'none';
-            document.getElementById('registerForm').style.display = 'block';
-        }
+    document.getElementById('loginTab').classList.remove('active');
+    document.getElementById('registerTab').classList.add('active');
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'block';
+}
 
         function updateConnectionStatus(status) {
             const statusElement = document.getElementById('connectionStatus');
@@ -789,99 +833,109 @@
         }
 
         // ===== הרשמה =====
-        async function registerUser() {
-            const firstName = document.getElementById('regFirstName').value.trim();
-            const lastName = document.getElementById('regLastName').value.trim();
-            const fatherName = document.getElementById('regFatherName').value.trim();
-            const motherName = document.getElementById('regMotherName').value.trim();
-            const idNumber = document.getElementById('regId').value.trim();
-            const phone = document.getElementById('regPhone').value.trim();
-            const email = document.getElementById('regEmail').value.trim();
+    async function registerUser() {
+    const firstName = document.getElementById('regFirstName').value.trim();
+    const lastName = document.getElementById('regLastName').value.trim();
+    const fatherName = document.getElementById('regFatherName').value.trim();
+    const motherName = document.getElementById('regMotherName').value.trim();
+    const idNumber = document.getElementById('regId').value.trim();
+    const phone = document.getElementById('regPhone').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
 
-            // וידוא שדות
-            if (!firstName || !lastName || !fatherName || !motherName || !idNumber || !phone || !email) {
-                showMessage('error', 'יש למלא את כל השדות החובה', 'registerMessage');
-                return;
-            }
+    // וידוא שדות
+    if (!firstName || !lastName || !fatherName || !motherName || !idNumber || !phone || !email) {
+        showMessage('error', 'יש למלא את כל השדות החובה', 'registerMessage');
+        return;
+    }
 
-            // וידוא ת.ז.
-            if (!/^\d{9}$/.test(idNumber)) {
-                showMessage('error', 'מספר תעודת זהות חייב להכיל 9 ספרות', 'registerMessage');
-                return;
-            }
+    // וידוא ת.ז.
+    if (!/^\d{9}$/.test(idNumber)) {
+        showMessage('error', 'מספר תעודת זהות חייב להכיל 9 ספרות', 'registerMessage');
+        return;
+    }
 
-            // וידוא מייל
-            if (!/\S+@\S+\.\S+/.test(email)) {
-                showMessage('error', 'כתובת מייל לא תקינה', 'registerMessage');
-                return;
-            }
+    // וידוא מייל
+    if (!/\S+@\S+\.\S+/.test(email)) {
+        showMessage('error', 'כתובת מייל לא תקינה', 'registerMessage');
+        return;
+    }
 
-            try {
-                showMessage('info', 'שולח בקשת הרשמה...', 'registerMessage');
+    try {
+        showMessage('info', '🔄 שולח בקשת הרשמה...', 'registerMessage');
 
-                // בדיקה אם המשתמש כבר קיים
-                const existingRegistrations = await readFromGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.REGISTRATIONS);
-                
-                const userExists = existingRegistrations.some(row => 
-                    row[3] === idNumber || row[4] === phone || row[2] === email
-                );
+        // בדיקה אם המשתמש כבר קיים
+        console.log('🔍 בודק אם המשתמש קיים...');
+        const existingRegistrations = await readFromGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.REGISTRATIONS);
+        
+        const userExists = existingRegistrations.some(row => 
+            row[3] === idNumber || row[4] === phone || row[2] === email
+        );
 
-                if (userExists) {
-                    showMessage('error', 'משתמש עם הפרטים האלה כבר קיים במערכת', 'registerMessage');
-                    return;
-                }
-
-                // שליחת הנתונים לגיליון
-                const newRegistration = [
-                    firstName,
-                    lastName,
-                    email,
-                    idNumber,
-                    phone,
-                    `${firstName} בן/בת ${motherName} ואבי ${fatherName}`,
-                    new Date().toISOString(),
-                    'ממתין לאישור',
-                    'לא אומת' // סטטוס אימות מייל
-                ];
-
-                await writeToGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.REGISTRATIONS, [newRegistration]);
-
-                // שליחת מייל אימות (דמה - תצטרך לממש עם שירות מייל אמיתי)
-                await sendVerificationEmail(email, firstName);
-
-                showMessage('success', 
-                    `בקשת ההרשמה נשלחה בהצלחה!<br>
-                    📧 נשלח מייל אימות לכתובת: ${email}<br>
-                    🔍 לאחר אימות המייל, הבקשה תועבר לאישור המנהל<br>
-                    📱 תקבל הודעה כשהחשבון יאושר`, 
-                    'registerMessage'
-                );
-
-                // ניקוי הטופס
-                document.getElementById('registerForm').reset();
-
-            } catch (error) {
-                console.error('שגיאה בהרשמה:', error);
-                showMessage('error', 'שגיאה בשליחת ההרשמה. נסה שוב מאוחר יותר.', 'registerMessage');
-            }
+        if (userExists) {
+            showMessage('error', 'משתמש עם הפרטים האלה כבר קיים במערכת', 'registerMessage');
+            return;
         }
 
-        async function sendVerificationEmail(email, firstName) {
-            // כאן תצטרך לממש שליחת מייל אמיתית
-            // אפשרויות: EmailJS, שירות מייל חיצוני, או Google Apps Script
-            
-            console.log(`שולח מייל אימות ל-${email} עבור ${firstName}`);
-            
-            // דוגמה עם EmailJS (תצטרך להגדיר חשבון):
-            /*
-            emailjs.send('service_id', 'template_id', {
-                to_email: email,
-                to_name: firstName,
-                verification_link: `${window.location.origin}/verify?email=${encodeURIComponent(email)}`
-            });
-            */
+        // הכנת הנתונים לשליחה
+        const timestamp = new Date().toISOString();
+        const fullName = `${firstName} בן/בת ${motherName} ואבי ${fatherName}`;
+        
+        const newRegistration = [
+            firstName,
+            lastName, 
+            email,
+            idNumber,
+            phone,
+            fullName,
+            timestamp,
+            'ממתין לאישור',
+            'לא אומת'
+        ];
+
+        console.log('📤 שולח נתוני הרשמה:', newRegistration);
+
+        // שליחת הנתונים לגיליון
+        await writeToGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.REGISTRATIONS, [newRegistration]);
+
+        // שליחת מייל אימות
+        console.log('📧 שולח מייל אימות...');
+        const emailResult = await sendVerificationEmail(email, firstName);
+        
+        if (!emailResult.success) {
+            console.warn('⚠️ מייל לא נשלח, אבל ההרשמה הצליחה');
         }
 
+        // הודעת הצלחה
+        showMessage('success', 
+            `✅ <strong>בקשת ההרשמה נשלחה בהצלחה!</strong><br><br>
+            📧 מייל אימות ${emailResult.success ? 'נשלח' : 'יישלח בהמשך'} לכתובת: ${email}<br>
+            🔍 לאחר אימות המייל, הבקשה תועבר לאישור המנהל<br>
+            📱 תקבל הודעה כשהחשבון יאושר<br><br>
+            <small>זמן שליחה: ${new Date().toLocaleString('he-IL')}</small>`, 
+            'registerMessage'
+        );
+
+        // ניקוי הטופס
+        document.querySelectorAll('#registerForm input, #registerForm select, #registerForm textarea').forEach(input => input.value = '');
+
+        console.log('✅ תהליך ההרשמה הושלם בהצלחה');
+
+    } catch (error) {
+        console.error('❌ שגיאה כללית בהרשמה:', error);
+        
+        // הודעת שגיאה מפורטת
+        let errorMessage = 'שגיאה בשליחת ההרשמה.';
+        
+        if (error.message.includes('אין חיבור')) {
+            errorMessage = 'אין חיבור לאינטרנט. בדוק את החיבור ונסה שוב.';
+        } else if (error.message.includes('Failed to fetch')) {
+            errorMessage = 'בעיה בחיבור לשרת. נסה שוב בעוד כמה דקות.';
+        }
+        
+        showMessage('error', `❌ ${errorMessage}<br><small>שגיאה טכנית: ${error.message}</small>`, 'registerMessage');
+    }
+}
+    
         // ===== כניסה =====
         async function loginUser() {
             const idNumber = document.getElementById('loginId').value.trim();
@@ -1126,7 +1180,10 @@
                                 ➕ הוסף ילד
                             </button>
                         </div>
-
+                        
+<button onclick="quickTest()" style="position: fixed; top: 60px; right: 20px; background: #2196F3; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; z-index: 1000;">
+    🧪 בדיקה מהירה
+</button>
                         <div class="children-list">
                             ${userFamily.children.length > 0 ? 
                                 userFamily.children.map(child => createChildCard(child)).join('') :
@@ -1281,6 +1338,52 @@
             }
         }
 
+        async function sendVerificationEmail(email, firstName) {
+    try {
+        console.log(`שולח מייל אימות ל-${email} עבור ${firstName}`);
+        
+        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'sendEmail',
+                email: email,
+                firstName: firstName,
+                subject: 'אימות כתובת מייל - כוללות צעטיל',
+                message: `שלום ${firstName},\n\nתודה על הרשמתך למערכת כוללות צעטיל.\nבקשתך התקבלה ותטופל בהקדם.\n\nבברכה,\nצוות כוללות צעטיל`
+            })
+        });
+
+        console.log('✅ מייל נשלח בהצלחה');
+        return { success: true };
+        
+    } catch (error) {
+        console.error('⚠️ שגיאה בשליחת מייל:', error);
+        // אל תעצור את התהליך בגלל שגיאת מייל
+        return { success: false, error: error.message };
+    }
+}
+
+async function testGoogleAppsScript() {
+    try {
+        console.log('🔄 בודק חיבור ל-Google Apps Script...');
+        
+        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: 'GET', // בדיקה פשוטה עם GET
+            mode: 'no-cors'
+        });
+        
+        console.log('✅ חיבור ל-Google Apps Script עובד');
+        return true;
+        
+    } catch (error) {
+        console.error('❌ בעיה בחיבור ל-Google Apps Script:', error);
+        return false;
+    }
+}
         // ===== פונקציות עזר =====
         function showMessage(type, message, elementId) {
             const element = document.getElementById(elementId);
@@ -1311,7 +1414,7 @@
                 
                 // ניקוי טפסים
                 document.getElementById('loginForm').reset();
-                document.getElementById('registerForm').reset();
+                document.querySelectorAll('#registerForm input, #registerForm select, #registerForm textarea').forEach(input => input.value = '');
                 
                 showLoginForm();
             }

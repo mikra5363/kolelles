@@ -473,6 +473,23 @@
             background: #ff9800;
             color: white;
         }
+
+        /* לחצן הפניה להרשמה */
+        .redirect-to-register {
+            background: #2196F3;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 15px;
+            width: 100%;
+        }
+
+        .redirect-to-register:hover {
+            background: #1976D2;
+        }
     </style>
 </head>
 <body>
@@ -529,6 +546,11 @@
                     </div>
 
                     <div class="form-group">
+                        <label>מספר תעודת זהות *</label>
+                        <input type="text" id="regId" placeholder="123456789" maxlength="9" required>
+                    </div>
+
+                    <div class="form-group">
                         <label>שם האב *</label>
                         <input type="text" id="regFatherName" required>
                     </div>
@@ -536,11 +558,6 @@
                     <div class="form-group">
                         <label>שם האם *</label>
                         <input type="text" id="regMotherName" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>מספר תעודת זהות *</label>
-                        <input type="text" id="regId" placeholder="123456789" maxlength="9" required>
                     </div>
 
                     <div class="form-group">
@@ -562,9 +579,10 @@
                     <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px; font-size: 14px;">
                         <strong>📋 תהליך ההרשמה:</strong><br>
                         1. מלא את הפרטים ושלח בקשה<br>
-                        2. תקבל מייל לאימות הכתובת<br>
-                        3. המערכת תבדוק את הנתונים<br>
-                        4. לאחר אישור תוכל להתחבר עם ת.ז. וטלפון
+                        2. המערכת תשלח את הנתונים למנהל<br>
+                        3. לאחר אישור המנהל תקבל מייל אימות<br>
+                        4. לחץ על הקישור במייל לאימות<br>
+                        5. לאחר האימות תוכל להתחבר עם ת.ז. וטלפון
                     </div>
                 </div>
             </div>
@@ -648,13 +666,16 @@
         // 🔧 החלף את הערכים האלה בערכים שלך
         const GOOGLE_SHEETS_CONFIG = {
             API_KEY: 'AIzaSyADMdfuBJtqpzH2h5CVr9FxkBn2Eb5oigc',
-            SPREADSHEET_ID: '1dLTsow7grSW3S8ggtRsmPrL-Huir_C-Bhw97gul2yog', // מזהה הגיליון
+            SPREADSHEET_ID: '1dLTsow7grSW3S8ggtRsmPrL-Huir_C-Bhw97gul2yog',
             RANGES: {
-                MEMBERS: 'כוללות_צעטיל!A:AD', // טווח נתוני החברים
-                REGISTRATIONS: 'נתוני_החברים!A:E', // טווח הרשמות חדשות
-                PENDING_CHILDREN: 'ילדים_ממתינים!A:J' // טווח ילדים ממתינים לאישור
+                MEMBERS: 'כוללות_צעטיל!A:AD',
+                REGISTRATIONS: 'נתוני_החברים!A:K', // עדכון לכלול עמודות A-K
+                PENDING_CHILDREN: 'ילדים_ממתינים!A:J'
             }
         };
+
+        // URL של Google Apps Script
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8kJdoUvL7tKNlHOYfpxpRntDQqpY4q27jc8v95N4pSdqM9dJ5n53F_fEN7QIeoQ/exec';
 
         // ===== משתנים גלובליים =====
         let currentUser = null;
@@ -669,68 +690,34 @@
         });
 
         async function initializeApp() {
-    try {
-        updateConnectionStatus('loading');
-        
-        // בדיקת חיבור לגוגל שיטס
-        console.log('🔄 בודק חיבור לגוגל שיטס...');
-        await testGoogleSheetsConnection();
-        
-        // בדיקת חיבור לגוגל אפס סקריפט
-        console.log('🔄 בודק חיבור לגוגל אפס סקריפט...');
-        const scriptWorking = await testGoogleAppsScript();
-        
-        if (scriptWorking) {
-            console.log('✅ כל המערכות עובדות');
-            updateConnectionStatus('connected');
-        } else {
-            console.warn('⚠️ יש בעיה עם Google Apps Script');
-            updateConnectionStatus('disconnected');
-            showMessage('warning', 'יש בעיה בחיבור לשרת. פונקציות הכתיבה עלולות לא לעבוד.', 'loginMessage');
+            try {
+                updateConnectionStatus('loading');
+                
+                console.log('🔄 בודק חיבור לגוגל שיטס...');
+                await testGoogleSheetsConnection();
+                
+                console.log('🔄 בודק חיבור לגוגל אפס סקריפט...');
+                const scriptWorking = await testGoogleAppsScript();
+                
+                if (scriptWorking) {
+                    console.log('✅ כל המערכות עובדות');
+                    updateConnectionStatus('connected');
+                } else {
+                    console.warn('⚠️ יש בעיה עם Google Apps Script');
+                    updateConnectionStatus('disconnected');
+                    showMessage('warning', 'יש בעיה בחיבור לשרת. פונקציות הכתיבה עלולות לא לעבוד.', 'loginMessage');
+                }
+                
+                isConnected = true;
+                                
+            } catch (error) {
+                console.error('❌ שגיאה באתחול:', error);
+                updateConnectionStatus('disconnected');
+                showMessage('error', 'אין חיבור לשרת. נסה לרענן את הדף.', 'loginMessage');
+            }
         }
-        
-        isConnected = true;
 
-        // בדיקה אם יש משתמש מחובר
-        const savedUser = localStorage.getItem('familyUser');
-        if (savedUser) {
-            currentUser = JSON.parse(savedUser);
-            await loadUserDashboard();
-        }
-        
-    } catch (error) {
-        console.error('❌ שגיאה באתחול:', error);
-        updateConnectionStatus('disconnected');
-        showMessage('error', 'אין חיבור לשרת. נסה לרענן את הדף.', 'loginMessage');
-    }
-}
-async function quickTest() {
-    console.log('🧪 מתחיל בדיקה מהירה...');
-    
-    try {
-        // בדיקה 1: חיבור לגוגל שיטס
-        console.log('1️⃣ בודק Google Sheets API...');
-        await testGoogleSheetsConnection();
-        console.log('✅ Google Sheets API עובד');
-        
-        // בדיקה 2: חיבור לגוגל אפס סקריפט
-        console.log('2️⃣ בודק Google Apps Script...');
-        await testGoogleAppsScript();
-        console.log('✅ Google Apps Script עובד');
-        
-        // בדיקה 3: נסיון כתיבה לדוגמה
-        console.log('3️⃣ בודק כתיבה לגיליון...');
-        await writeToGoogleSheets('Test!A1:B1', [['Test', new Date().toISOString()]]);
-        console.log('✅ כתיבה לגיליון עובדת');
-        
-        alert('🎉 כל הבדיקות עברו בהצלחה! המערכת מוכנה לעבודה.');
-        
-    } catch (error) {
-        console.error('❌ בדיקה נכשלה:', error);
-        alert(`❌ יש בעיה במערכת: ${error.message}`);
-    }
-}
-        // ===== חיבור לגוגל שיטס =====
+        // ===== פונקציות חיבור =====
         async function testGoogleSheetsConnection() {
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.SPREADSHEET_ID}?key=${GOOGLE_SHEETS_CONFIG.API_KEY}`;
             
@@ -741,6 +728,24 @@ async function quickTest() {
             }
 
             return await response.json();
+        }
+
+        async function testGoogleAppsScript() {
+            try {
+                console.log('🔄 בודק חיבור ל-Google Apps Script...');
+                
+                const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'GET',
+                    mode: 'no-cors'
+                });
+                
+                console.log('✅ חיבור ל-Google Apps Script עובד');
+                return true;
+                
+            } catch (error) {
+                console.error('❌ בעיה בחיבור ל-Google Apps Script:', error);
+                return false;
+            }
         }
 
         async function readFromGoogleSheets(range) {
@@ -761,182 +766,131 @@ async function quickTest() {
             }
         }
 
-        
-// הגדרת URL של Google Apps Script
-const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8kJdoUvL7tKNlHOYfpxpRntDQqpY4q27jc8v95N4pSdqM9dJ5n53F_fEN7QIeoQ/exec';
+        async function writeToGoogleSheets(range, values) {
+            try {
+                console.log('שולח נתונים ל-Google Sheets:', { range, values });
+                
+                const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'write',
+                        range: range,
+                        values: values
+                    })
+                });
 
-async function writeToGoogleSheets(range, values) {
-    try {
-        console.log('שולח נתונים ל-Google Sheets:', { range, values });
-        
-        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors', // חשוב למניעת שגיאות CORS
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'write',
-                range: range,
-                values: values
-            })
-        });
+                console.log('✅ נתונים נשלחו ל-Google Sheets');
+                return { success: true };
 
-        // בגלל no-cors לא נוכל לבדוק את התגובה
-        // אבל אם לא היתה שגיאת רשת, נניח שהכל עבר בסדר
-        console.log('✅ נתונים נשלחו בהצלחה ל-Google Sheets');
-        return { success: true };
-
-    } catch (error) {
-        console.error('❌ שגיאה בכתיבה ל-Google Sheets:', error);
-        
-        // זיהוי סוג השגיאה
-        if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-            throw new Error('אין חיבור לאינטרנט או שהשרת לא זמין');
-        }
-        
-        throw new Error(`שגיאה בשליחת הנתונים: ${error.message}`);
-    }
-}
-
-
-        // ===== ממשק משתמש =====
-        function showLoginForm() {
-            document.getElementById('loginTab').classList.add('active');
-            document.getElementById('registerTab').classList.remove('active');
-            document.getElementById('loginForm').style.display = 'block';
-            document.getElementById('registerForm').style.display = 'none';
-        }
-
-        function showRegisterForm() {
-    document.getElementById('loginTab').classList.remove('active');
-    document.getElementById('registerTab').classList.add('active');
-    document.getElementById('loginForm').style.display = 'none';
-    document.getElementById('registerForm').style.display = 'block';
-}
-
-        function updateConnectionStatus(status) {
-            const statusElement = document.getElementById('connectionStatus');
-            statusElement.className = 'connection-status ' + status;
-            
-            switch(status) {
-                case 'connected':
-                    statusElement.textContent = '✅ מחובר';
-                    break;
-                case 'disconnected':
-                    statusElement.textContent = '❌ לא מחובר';
-                    break;
-                case 'loading':
-                    statusElement.textContent = '🔄 מתחבר...';
-                    break;
+            } catch (error) {
+                console.error('❌ שגיאה בכתיבה ל-Google Sheets:', error);
+                throw new Error(`שגיאה בשליחת הנתונים: ${error.message}`);
             }
         }
 
-        // ===== הרשמה =====
-    async function registerUser() {
-    const firstName = document.getElementById('regFirstName').value.trim();
-    const lastName = document.getElementById('regLastName').value.trim();
-    const fatherName = document.getElementById('regFatherName').value.trim();
-    const motherName = document.getElementById('regMotherName').value.trim();
-    const idNumber = document.getElementById('regId').value.trim();
-    const phone = document.getElementById('regPhone').value.trim();
-    const email = document.getElementById('regEmail').value.trim();
+        // ===== הרשמה מעודכנת =====
+        async function registerUser() {
+            const firstName = document.getElementById('regFirstName').value.trim();
+            const lastName = document.getElementById('regLastName').value.trim();
+            const idNumber = document.getElementById('regId').value.trim();
+            const fatherName = document.getElementById('regFatherName').value.trim();
+            const motherName = document.getElementById('regMotherName').value.trim();
+            const phone = document.getElementById('regPhone').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
 
-    // וידוא שדות
-    if (!firstName || !lastName || !fatherName || !motherName || !idNumber || !phone || !email) {
-        showMessage('error', 'יש למלא את כל השדות החובה', 'registerMessage');
-        return;
-    }
+            // וידוא שדות
+            if (!firstName || !lastName || !idNumber || !fatherName || !motherName || !phone || !email) {
+                showMessage('error', 'יש למלא את כל השדות החובה', 'registerMessage');
+                return;
+            }
 
-    // וידוא ת.ז.
-    if (!/^\d{9}$/.test(idNumber)) {
-        showMessage('error', 'מספר תעודת זהות חייב להכיל 9 ספרות', 'registerMessage');
-        return;
-    }
+            // וידוא ת.ז.
+            if (!/^\d{9}$/.test(idNumber)) {
+                showMessage('error', 'מספר תעודת זהות חייב להכיל 9 ספרות', 'registerMessage');
+                return;
+            }
 
-    // וידוא מייל
-    if (!/\S+@\S+\.\S+/.test(email)) {
-        showMessage('error', 'כתובת מייל לא תקינה', 'registerMessage');
-        return;
-    }
+            // וידוא מייל
+            if (!/\S+@\S+\.\S+/.test(email)) {
+                showMessage('error', 'כתובת מייל לא תקינה', 'registerMessage');
+                return;
+            }
 
-    try {
-        showMessage('info', '🔄 שולח בקשת הרשמה...', 'registerMessage');
+            try {
+                showMessage('info', '🔄 שולח בקשת הרשמה...', 'registerMessage');
 
-        // בדיקה אם המשתמש כבר קיים
-        console.log('🔍 בודק אם המשתמש קיים...');
-        const existingRegistrations = await readFromGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.REGISTRATIONS);
-        
-        const userExists = existingRegistrations.some(row => 
-            row[3] === idNumber || row[4] === phone || row[2] === email
-        );
+                // בדיקה אם המשתמש כבר קיים
+                console.log('🔍 בודק אם המשתמש קיים...');
+                const existingRegistrations = await readFromGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.REGISTRATIONS);
+                
+                const userExists = existingRegistrations.some(row => 
+                    row[2] === idNumber || row[5] === phone || row[6] === email
+                );
 
-        if (userExists) {
-            showMessage('error', 'משתמש עם הפרטים האלה כבר קיים במערכת', 'registerMessage');
-            return;
+                if (userExists) {
+                    showMessage('error', 'משתמש עם הפרטים האלה כבר קיים במערכת', 'registerMessage');
+                    return;
+                }
+
+                // הכנת הנתונים לשליחה - מסודר לפי העמודות הנכונות
+                const timestamp = new Date().toISOString();
+                
+                const newRegistration = [
+    firstName,                              // עמודה A - שם פרטי
+    lastName,                               // עמודה B - שם משפחה  
+    email,                                  // עמודה C - כתובת מייל
+    idNumber + "\u200B",                         // עמודה D - מס' ת.ז.
+    phone + "\u200B",                            // עמודה E - מספר טלפון
+    `${firstName} בן ${motherName}`,        // עמודה F - שם מלא
+    timestamp,                              // עמודה G - תאריך רישום
+    'ממתין לאימות',                        // עמודה H - סטטוס אישור
+    'ממתין לאימות',                        // עמודה I - סטטוס אימות
+    '',                                     // עמודה J - אימות מנהל
+    '',                                     // עמודה K - הערות
+    '',                                     // עמודה L - מספר משפחה
+    fatherName,                             // עמודה M - שם אב
+    motherName                              // עמודה N - שם אם
+];
+
+                console.log('📤 שולח נתוני הרשמה:', newRegistration);
+
+                // שליחת הנתונים לגיליון
+                await writeToGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.REGISTRATIONS, [newRegistration]);
+                
+                console.log('✅ נתונים נשלחו בהצלחה ל-Google Sheets');
+
+                // הודעת הצלחה
+                showMessage('success', 
+                    `✅ <strong>בקשת ההרשמה נשלחה בהצלחה!</strong><br><br>
+                    📋 הנתונים נשלחו למנהל המערכת לבדיקה<br>
+                    📧 לאחר אישור המנהל תקבל מייל אימות לכתובת: ${email}<br>
+                    🔗 לחץ על הקישור במייל כדי לאמת את החשבון<br>
+                    ✅ לאחר האימות תוכל להתחבר עם ת.ז. וטלפון<br><br>
+                    <small>זמן שליחה: ${new Date().toLocaleString('he-IL')}</small>`, 
+                    'registerMessage'
+                );
+
+                // ניקוי הטופס
+                document.querySelectorAll('#registerForm input, #registerForm select, #registerForm textarea').forEach(input => input.value = '');
+
+                console.log('✅ תהליך ההרשמה הושלם בהצלחה');
+
+            } catch (error) {
+                console.error('❌ שגיאה בתהליך ההרשמה:', error);
+                showMessage('error', 
+                    `❌ <strong>שגיאה בתהליך ההרשמה</strong><br>
+                    ${error.message || 'שגיאה לא מזוהה'}<br>
+                    אנא נסה שוב או פנה למנהל המערכת`, 
+                    'registerMessage'
+                );
+            }
         }
 
-        // הכנת הנתונים לשליחה
-        const timestamp = new Date().toISOString();
-        const fullName = `${firstName} בן/בת ${motherName} ואבי ${fatherName}`;
-        
-        const newRegistration = [
-            firstName,
-            lastName, 
-            email,
-            idNumber,
-            phone,
-            fullName,
-            timestamp,
-            'ממתין לאישור',
-            'לא אומת'
-        ];
-
-        console.log('📤 שולח נתוני הרשמה:', newRegistration);
-
-        // שליחת הנתונים לגיליון
-        await writeToGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.REGISTRATIONS, [newRegistration]);
-
-        // שליחת מייל אימות
-        console.log('📧 שולח מייל אימות...');
-        const emailResult = await sendVerificationEmail(email, firstName);
-        
-        if (!emailResult.success) {
-            console.warn('⚠️ מייל לא נשלח, אבל ההרשמה הצליחה');
-        }
-
-        // הודעת הצלחה
-        showMessage('success', 
-            `✅ <strong>בקשת ההרשמה נשלחה בהצלחה!</strong><br><br>
-            📧 מייל אימות ${emailResult.success ? 'נשלח' : 'יישלח בהמשך'} לכתובת: ${email}<br>
-            🔍 לאחר אימות המייל, הבקשה תועבר לאישור המנהל<br>
-            📱 תקבל הודעה כשהחשבון יאושר<br><br>
-            <small>זמן שליחה: ${new Date().toLocaleString('he-IL')}</small>`, 
-            'registerMessage'
-        );
-
-        // ניקוי הטופס
-        document.querySelectorAll('#registerForm input, #registerForm select, #registerForm textarea').forEach(input => input.value = '');
-
-        console.log('✅ תהליך ההרשמה הושלם בהצלחה');
-
-    } catch (error) {
-        console.error('❌ שגיאה כללית בהרשמה:', error);
-        
-        // הודעת שגיאה מפורטת
-        let errorMessage = 'שגיאה בשליחת ההרשמה.';
-        
-        if (error.message.includes('אין חיבור')) {
-            errorMessage = 'אין חיבור לאינטרנט. בדוק את החיבור ונסה שוב.';
-        } else if (error.message.includes('Failed to fetch')) {
-            errorMessage = 'בעיה בחיבור לשרת. נסה שוב בעוד כמה דקות.';
-        }
-        
-        showMessage('error', `❌ ${errorMessage}<br><small>שגיאה טכנית: ${error.message}</small>`, 'registerMessage');
-    }
-}
-    
-        // ===== כניסה =====
+        // ===== כניסה מעודכנת =====
         async function loginUser() {
             const idNumber = document.getElementById('loginId').value.trim();
             const phone = document.getElementById('loginPhone').value.trim();
@@ -954,39 +908,121 @@ async function writeToGoogleSheets(range, values) {
             try {
                 showMessage('info', 'מתחבר למערכת...', 'loginMessage');
 
-                // בדיקה ברשימת המשתמשים המאושרים
-                const approvedUsers = await readFromGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.REGISTRATIONS);
-                
-                const user = approvedUsers.find(row => 
-                    row[3] === idNumber && 
-                    row[4] === phone && 
-                    row[7] === 'מאושר' && 
-                    row[8] === 'אומת'
-                );
+                // קריאת נתוני ההרשמות
+               const registrations = await readFromGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.REGISTRATIONS);
 
-                if (!user) {
+// הוסף את זה לבדיקה:
+console.log('רשימת כל הנתונים:', registrations);
+console.log('מחפש ת.ז.:', idNumber);
+console.log('מחפש טלפון:', phone);
+
+// בדיקה מדויקת יותר
+registrations.slice(1).forEach((row, index) => {
+    const rowId = row[3]?.toString().trim();
+    const rowPhone = row[4]?.toString().trim();
+    
+    console.log(`שורה ${index + 1}:`);
+    console.log(`  ת.ז. בגיליון: "${rowId}" (אורך: ${rowId?.length})`);
+    console.log(`  ת.ז. שהוקלד: "${idNumber}" (אורך: ${idNumber.length})`);
+    console.log(`  תואם ת.ז.: ${rowId === idNumber}`);
+    
+    console.log(`  טלפון בגיליון: "${rowPhone}" (אורך: ${rowPhone?.length})`);
+    console.log(`  טלפון שהוקלד: "${phone}" (אורך: ${phone.length})`);
+    console.log(`  תואם טלפון: ${rowPhone === phone}`);
+    console.log('---');
+});
+// חיפוש המשתמש
+// חיפוש המשתמש (מדלג על שורת כותרות)
+const userRegistration = registrations.slice(1).find(row => {
+    const rowId = row[3]?.toString().replace(/\s/g, '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/[^\d]/g, '');
+    const rowPhone = row[4]?.toString().replace(/\s/g, '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/[^\d]/g, '');
+    
+    // הוסף את זה לבדיקה:
+    console.log('אחרי ניקוי:');
+    console.log(`ת.ז. מנוקה: "${rowId}" (אורך: ${rowId.length})`);
+    console.log(`טלפון מנוקה: "${rowPhone}" (אורך: ${rowPhone.length})`);
+    console.log(`התאמה: ${rowId === idNumber && rowPhone === phone}`);
+    
+    return rowId === idNumber && rowPhone === phone;
+});
+console.log('תוצאת החיפוש:', userRegistration);
+
+                if (!userRegistration) {
+                    // המשתמש לא נמצא בכלל
                     showMessage('error', 
-                        'פרטי ההתחברות שגויים או שהחשבון עדיין לא אושר.<br>' +
-                        'אם נרשמת לאחרונה, המתן לאישור המנהל.', 
+                        `❌ <strong>לא נמצא משתמש עם הפרטים האלה</strong><br><br>
+                        יתכן שעדיין לא נרשמת למערכת:`, 
                         'loginMessage'
                     );
+                    
+                    // הוספת כפתור הפניה להרשמה
+                    setTimeout(() => {
+                        const loginMessageDiv = document.getElementById('loginMessage');
+                        const registerBtn = document.createElement('button');
+                        registerBtn.className = 'redirect-to-register';
+                        registerBtn.textContent = '📝 לחץ כאן להרשמה';
+                        registerBtn.onclick = () => {
+                            showRegisterForm();
+                            loginMessageDiv.innerHTML = '';
+                        };
+                        loginMessageDiv.appendChild(registerBtn);
+                    }, 100);
+                    
                     return;
                 }
 
-                // שמירת המשתמש
+                // בדיקת סטטוס האימות
+                const verificationStatus = userRegistration[9]; // עמודה J
+const approvalStatus = userRegistration[7];     // עמודה H - הוסף את זה
+
+if (verificationStatus !== 'אומת') {
+    let statusMessage = '';
+    
+    if (approvalStatus === 'ממתין לאימות') {  // שנה לבדוק עמודה H
+        statusMessage = `⏳ <strong>החשבון שלך עדיין לא אומת</strong><br><br>
+        📋 הרשמתך נקלטה במערכת אך עדיין ממתינה לאישור המנהל<br>
+        📧 לאחר אישור המנהל תקבל מייל אימות<br>
+        🔗 תצטרך ללחוץ על הקישור במייל כדי לאמת את החשבון<br><br>
+        אם חלף זמן רב ולא קיבלת מייל, פנה למנהל המערכת.`;
+    } else {
+        statusMessage = `❌ <strong>החשבון שלך לא אומת</strong><br><br>
+        סטטוס נוכחי: ${verificationStatus}<br>
+        יש לאמת את החשבון לפני הכניסה למערכת.<br><br>
+        אם יש בעיה, פנה למנהל המערכת.`;
+    }
+                    
+                    showMessage('warning', statusMessage, 'loginMessage');
+                    
+                    // הוספת כפתור הפניה להרשמה
+                    setTimeout(() => {
+                        const loginMessageDiv = document.getElementById('loginMessage');
+                        const registerBtn = document.createElement('button');
+                        registerBtn.className = 'redirect-to-register';
+                        registerBtn.textContent = '📝 אולי תרצה להירשם שוב?';
+                        registerBtn.onclick = () => {
+                            showRegisterForm();
+                            loginMessageDiv.innerHTML = '';
+                        };
+                        loginMessageDiv.appendChild(registerBtn);
+                    }, 100);
+                    
+                    return;
+                }
+
+                // המשתמש מאומת - מתחבר
                 currentUser = {
-                    firstName: user[0],
-                    lastName: user[1],
-                    email: user[2],
-                    idNumber: user[3],
-                    phone: user[4],
-                    fullName: user[5]
-                };
+    firstName: userRegistration[0],
+    lastName: userRegistration[1], 
+    idNumber: userRegistration[2],
+    fatherName: userRegistration[3],
+    motherName: userRegistration[4],
+    phone: userRegistration[5],
+    email: userRegistration[6],
+    familyNumber: userRegistration[10] // עמודה K - מספר משפחה
+};
 
-                localStorage.setItem('familyUser', JSON.stringify(currentUser));
-
-                // מעבר לממשק המשפחה
-                await loadUserDashboard();
+// מעבר לתצוגת המשפחה
+showUserFamily(userRegistration[6]);
 
             } catch (error) {
                 console.error('שגיאה בכניסה:', error);
@@ -997,7 +1033,6 @@ async function writeToGoogleSheets(range, values) {
         // ===== ממשק המשפחה =====
         async function loadUserDashboard() {
             try {
-                // הסתרת מסך ההתחברות
                 document.getElementById('authSection').style.display = 'none';
                 document.getElementById('familyDashboard').style.display = 'block';
                 document.getElementById('loading').style.display = 'block';
@@ -1006,17 +1041,25 @@ async function writeToGoogleSheets(range, values) {
                 document.getElementById('userInfo').innerHTML = `
                     <h2>שלום ${currentUser.firstName} ${currentUser.lastName}</h2>
                     <p>📧 ${currentUser.email} | 📱 ${currentUser.phone}</p>
-                    <p>${currentUser.fullName}</p>
+                    <p>בן ${currentUser.motherName} ואבי ${currentUser.fatherName}</p>
+                    ${currentUser.familyNumber ? `<p><strong>מספר משפחה: ${currentUser.familyNumber}</strong></p>` : ''}
                 `;
 
-                // טעינת נתוני החברים
-                await loadMembersData();
-
-                // מציאת המשפחה של המשתמש
-                await findUserFamily();
-
-                // הצגת המשפחה
-                displayUserFamily();
+                // אם יש מספר משפחה - הצג את המשפחה
+                if (currentUser.familyNumber) {
+                    await loadMembersData();
+                    await findUserFamily();
+                    displayUserFamily();
+                } else {
+                    // אין מספר משפחה - הודעה למשתמש
+                    document.getElementById('familyContent').innerHTML = `
+                        <div class="message warning">
+                            <h3>⚠️ מספר משפחה לא הוגדר</h3>
+                            <p>עדיין לא הוגדר מספר משפחה עבור החשבון שלך.</p>
+                            <p>אנא פנה למנהל המערכת להשלמת הפרטים.</p>
+                        </div>
+                    `;
+                }
 
                 document.getElementById('loading').style.display = 'none';
 
@@ -1030,7 +1073,6 @@ async function writeToGoogleSheets(range, values) {
         async function loadMembersData() {
             const membersData = await readFromGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.MEMBERS);
             
-            // המרת הנתונים למבנה אובייקט
             if (membersData.length > 1) {
                 const headers = membersData[0];
                 allMembers = membersData.slice(1).map(row => {
@@ -1044,28 +1086,8 @@ async function writeToGoogleSheets(range, values) {
         }
 
         async function findUserFamily() {
-            // חיפוש המשתמש ברשימת החברים
-            const userMember = allMembers.find(member => 
-                member.מספר_אישי && (
-                    // חיפוש לפי שם מלא משוער
-                    (member.שם_פרטי === currentUser.firstName && member.שם_משפחה === currentUser.lastName) ||
-                    // או חיפוש לפי הערות שמכילות ת.ז.
-                    (member.הערה && member.הערה.includes(currentUser.idNumber))
-                )
-            );
-
-            if (userMember) {
-                // אם נמצא המשתמש, מציאת המשפחה שלו
-                const familyNumber = userMember.משפ_עצמי || userMember.משפ_הורים;
-                
-                if (familyNumber) {
-                    userFamily = await buildFamilyStructure(familyNumber);
-                }
-            }
-
-            // אם לא נמצאה משפחה, חיפוש לפי שם
-            if (!userFamily) {
-                userFamily = await searchFamilyByName();
+            if (currentUser.familyNumber) {
+                userFamily = await buildFamilyStructure(currentUser.familyNumber);
             }
         }
 
@@ -1096,107 +1118,7 @@ async function writeToGoogleSheets(range, values) {
             };
         }
 
-        async function searchFamilyByName() {
-            // חיפוש משפחה לפי שם המשתמש
-            const possibleFathers = allMembers.filter(m => 
-                m.שם_פרטי === currentUser.firstName && 
-                m.שם_משפחה === currentUser.lastName &&
-                m.ראש_משפחה === 'TRUE'
-            );
-
-            if (possibleFathers.length > 0) {
-                return await buildFamilyStructure(possibleFathers[0].משפ_עצמי);
-            }
-
-            // חיפוש כילד במשפחה
-            const possibleChildren = allMembers.filter(m => 
-                m.שם_פרטי === currentUser.firstName && 
-                m.משפ_הורים
-            );
-
-            if (possibleChildren.length > 0) {
-                return await buildFamilyStructure(possibleChildren[0].משפ_הורים);
-            }
-
-            return null;
-        }
-
-        function displayUserFamily() {
-            const familyContent = document.getElementById('familyContent');
-
-            if (!userFamily) {
-                familyContent.innerHTML = `
-                    <div class="message warning">
-                        <h3>⚠️ משפחה לא נמצאה</h3>
-                        <p>לא הצלחנו למצוא את המשפחה שלך במערכת.</p>
-                        <p>אנא פנה למנהל המערכת לבירור.</p>
-                        <p><strong>פרטיך:</strong> ${currentUser.firstName} ${currentUser.lastName}</p>
-                    </div>
-                `;
-                return;
-            }
-
-            familyContent.innerHTML = `
-                <div class="family-card">
-                    <div class="family-header">
-                        <div class="family-title">משפחת ${userFamily.lastName}</div>
-                        <div class="family-number">משפחה ${userFamily.familyNumber}</div>
-                    </div>
-
-                    <div class="parents-section">
-                        <div class="parent-card father">
-                            <div class="parent-name">👨 ${userFamily.father ? userFamily.father.שם_פרטי : 'לא מוגדר'}</div>
-                            <div class="parent-details">
-                                ${userFamily.father ? `
-                                    מספר: ${userFamily.father.מספר_אישי}<br>
-                                    ${userFamily.father.תאריך_לידה ? `נולד: ${userFamily.father.תאריך_לידה}<br>` : ''}
-                                    ${userFamily.father.שם_אם ? `בן ${userFamily.father.שם_אם}` : ''}
-                                ` : 'אין מידע'}
-                            </div>
-                        </div>
-
-                        <div class="parent-card mother">
-                            <div class="parent-name">👩 ${userFamily.mother ? userFamily.mother.שם_פרטי : 'לא מוגדר'}</div>
-                            <div class="parent-details">
-                                ${userFamily.mother ? `
-                                    מספר: ${userFamily.mother.מספר_אישי}<br>
-                                    ${userFamily.mother.תאריך_לידה ? `נולדה: ${userFamily.mother.תאריך_לידה}<br>` : ''}
-                                    ${userFamily.mother.שם_אם ? `בת ${userFamily.mother.שם_אם}` : ''}
-                                ` : 'אין מידע'}
-                            </div>
-                        </div>
-                    </div>
-
-                    ${userFamily.marriageDate ? `
-                        <div style="text-align: center; margin-bottom: 20px; padding: 10px; background: #f0f8ff; border-radius: 8px;">
-                            💒 <strong>תאריך חתונה:</strong> ${userFamily.marriageDate}
-                        </div>
-                    ` : ''}
-
-                    <div class="children-section">
-                        <div class="children-header">
-                            <div class="children-title">👶 הילדים (${userFamily.children.length})</div>
-                            <button class="add-child-btn" onclick="openAddChildModal()">
-                                ➕ הוסף ילד
-                            </button>
-                        </div>
-                        
-<button onclick="quickTest()" style="position: fixed; top: 60px; right: 20px; background: #2196F3; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; z-index: 1000;">
-    🧪 בדיקה מהירה
-</button>
-                        <div class="children-list">
-                            ${userFamily.children.length > 0 ? 
-                                userFamily.children.map(child => createChildCard(child)).join('') :
-                                '<div style="text-align: center; color: #666; padding: 20px;">אין ילדים רשומים</div>'
-                            }
-                        </div>
-                    </div>
-                </div>
-
-                <span class="text-xs" id="formError"></span>
-            `;
-        }
-
+        
         function createChildCard(child) {
             const benBat = child.מין === 'זכר' ? 'בן' : 'בת';
             const motherName = child.שם_אם || userFamily.mother?.שם_פרטי || '';
@@ -1223,53 +1145,10 @@ async function writeToGoogleSheets(range, values) {
             `;
         }
 
-        async function loadPendingChildren() {
-            try {
-                const pendingData = await readFromGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.PENDING_CHILDREN);
-                
-                const userPendingChildren = pendingData.filter(row => 
-                    parseInt(row[6]) === parseInt(userFamily.familyNumber) // עמודת מספר משפחה
-                );
-
-                if (userPendingChildren.length === 0) {
-                    return '';
-                }
-
-                return `
-                    <div class="family-card" style="margin-top: 20px; border-color: #ff9800;">
-                        <div class="family-header">
-                            <div class="family-title" style="color: #ff6f00;">ילדים ממתינים לאישור</div>
-                        </div>
-
-                        <div class="children-list">
-                            ${userPendingChildren.map(child => `
-                                <div class="child-item pending">
-                                    <div class="child-info">
-                                        <div class="child-name">${child[0]} ${child[1]}</div>
-                                        <div class="child-details">
-                                            ${child[2]} • ${child[3] || 'לא מוגדר תאריך לידה'}
-                                            ${child[4] ? ` • ${child[4]}` : ''}
-                                        </div>
-                                    </div>
-                                    <div class="child-status status-pending">
-                                        ⏳ ממתין לאישור
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            } catch (error) {
-                console.error('שגיאה בטעינת ילדים ממתינים:', error);
-                return '';
-            }
-        }
-
         // ===== הוספת ילד =====
         function openAddChildModal() {
             document.getElementById('addChildModal').style.display = 'flex';
             
-            // מילוי אוטומטי של שם האם
             const motherName = userFamily.mother?.שם_פרטי || '';
             document.getElementById('childMotherName').value = motherName;
         }
@@ -1281,7 +1160,6 @@ async function writeToGoogleSheets(range, values) {
             const motherName = document.getElementById('childMotherName').value.trim();
             const notes = document.getElementById('childNotes').value.trim();
 
-            // וידוא שדות חובה
             if (!firstName || !gender) {
                 showMessage('error', 'יש למלא שם פרטי ומין', 'childMessage');
                 return;
@@ -1290,7 +1168,6 @@ async function writeToGoogleSheets(range, values) {
             try {
                 showMessage('info', 'שומר ילד...', 'childMessage');
 
-                // חישוב מספר הילד הבא בסדר
                 const maxChildNumber = userFamily.children.reduce((max, child) => {
                     const num = parseInt(child.מספר_בן) || 0;
                     return num > max ? num : max;
@@ -1298,7 +1175,6 @@ async function writeToGoogleSheets(range, values) {
 
                 const nextChildNumber = maxChildNumber + 1;
 
-                // הכנת הנתונים
                 const childData = [
                     firstName,
                     userFamily.lastName,
@@ -1312,7 +1188,6 @@ async function writeToGoogleSheets(range, values) {
                     'ממתין לאישור'
                 ];
 
-                // שמירה בגיליון ילדים ממתינים
                 await writeToGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.PENDING_CHILDREN, [childData]);
 
                 showMessage('success', 
@@ -1320,16 +1195,14 @@ async function writeToGoogleSheets(range, values) {
                     'childMessage'
                 );
 
-                // ניקוי הטופס
                 document.getElementById('childFirstName').value = '';
                 document.getElementById('childGender').value = '';
                 document.getElementById('childBirthDate').value = '';
                 document.getElementById('childNotes').value = '';
 
-                // רענון התצוגה אחרי 2 שניות
                 setTimeout(async () => {
                     closeModal();
-                    await loadUserDashboard();
+                    showUserFamily(currentUser.email);
                 }, 2000);
 
             } catch (error) {
@@ -1338,67 +1211,53 @@ async function writeToGoogleSheets(range, values) {
             }
         }
 
-        async function sendVerificationEmail(email, firstName) {
-    try {
-        console.log(`שולח מייל אימות ל-${email} עבור ${firstName}`);
-        
-        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'sendEmail',
-                email: email,
-                firstName: firstName,
-                subject: 'אימות כתובת מייל - כוללות צעטיל',
-                message: `שלום ${firstName},\n\nתודה על הרשמתך למערכת כוללות צעטיל.\nבקשתך התקבלה ותטופל בהקדם.\n\nבברכה,\nצוות כוללות צעטיל`
-            })
-        });
+        // ===== ממשק משתמש =====
+        function showLoginForm() {
+            document.getElementById('loginTab').classList.add('active');
+            document.getElementById('registerTab').classList.remove('active');
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('loginMessage').innerHTML = '';
+        }
 
-        console.log('✅ מייל נשלח בהצלחה');
-        return { success: true };
-        
-    } catch (error) {
-        console.error('⚠️ שגיאה בשליחת מייל:', error);
-        // אל תעצור את התהליך בגלל שגיאת מייל
-        return { success: false, error: error.message };
-    }
-}
+        function showRegisterForm() {
+            document.getElementById('loginTab').classList.remove('active');
+            document.getElementById('registerTab').classList.add('active');
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+            document.getElementById('registerMessage').innerHTML = '';
+        }
 
-async function testGoogleAppsScript() {
-    try {
-        console.log('🔄 בודק חיבור ל-Google Apps Script...');
-        
-        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'GET', // בדיקה פשוטה עם GET
-            mode: 'no-cors'
-        });
-        
-        console.log('✅ חיבור ל-Google Apps Script עובד');
-        return true;
-        
-    } catch (error) {
-        console.error('❌ בעיה בחיבור ל-Google Apps Script:', error);
-        return false;
-    }
-}
-        // ===== פונקציות עזר =====
+        function updateConnectionStatus(status) {
+            const statusElement = document.getElementById('connectionStatus');
+            statusElement.className = 'connection-status ' + status;
+            
+            switch(status) {
+                case 'connected':
+                    statusElement.textContent = '✅ מחובר';
+                    break;
+                case 'disconnected':
+                    statusElement.textContent = '❌ לא מחובר';
+                    break;
+                case 'loading':
+                    statusElement.textContent = '🔄 מתחבר...';
+                    break;
+            }
+        }
+
         function showMessage(type, message, elementId) {
             const element = document.getElementById(elementId);
             element.innerHTML = `<div class="message ${type}">${message}</div>`;
             
-            // הסרת ההודעה אחרי 10 שניות
             setTimeout(() => {
-                element.innerHTML = '';
-            }, 10000);
+                if (element.innerHTML.includes(message)) {
+                    element.innerHTML = '';
+                }
+            }, 15000);
         }
 
         function closeModal() {
             document.getElementById('addChildModal').style.display = 'none';
-            
-            // ניקוי הודעות
             document.getElementById('childMessage').innerHTML = '';
         }
 
@@ -1408,12 +1267,10 @@ async function testGoogleAppsScript() {
                 currentUser = null;
                 userFamily = null;
                 
-                // חזרה למסך התחברות
                 document.getElementById('authSection').style.display = 'block';
                 document.getElementById('familyDashboard').style.display = 'none';
                 
-                // ניקוי טפסים
-                document.getElementById('loginForm').reset();
+                document.querySelectorAll('#loginForm input').forEach(input => input.value = '');
                 document.querySelectorAll('#registerForm input, #registerForm select, #registerForm textarea').forEach(input => input.value = '');
                 
                 showLoginForm();
@@ -1427,7 +1284,6 @@ async function testGoogleAppsScript() {
             }
         });
 
-        // סגירת מודל עם ESC
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeModal();
@@ -1435,14 +1291,564 @@ async function testGoogleAppsScript() {
         });
 
         // וידוא מספרים בלבד בת.ז.
-        document.getElementById('regId')?.addEventListener('input', function(e) {
-            this.value = this.value.replace(/\D/g, '');
+        document.addEventListener('DOMContentLoaded', function() {
+            const idInputs = ['regId', 'loginId'];
+            idInputs.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.addEventListener('input', function(e) {
+                        this.value = this.value.replace(/\D/g, '');
+                    });
+                }
+            });
         });
+        // ===== הצגת משפחת המשתמש אחרי התחברות מוצלחת =====
+function showUserFamily(userEmail) {
+    showMessage('info', '🔄 טוען את המשפחה שלך...', 'loginMessage');
+    
+    // במקום google.script.run, נשתמש בפונקציות הקיימות שלך
+    loadUserFamilyFromSheets(userEmail);
+}
 
-        document.getElementById('loginId')?.addEventListener('input', function(e) {
-            this.value = this.value.replace(/\D/g, '');
-        });
-       
+async function loadUserFamilyFromSheets(userEmail) {
+    try {
+        // קבלת מספר המשפחה של המשתמש
+        const familyNumber = currentUser.familyNumber; // כבר יש לנו במשתנה currentUser
+        
+        console.log('מספר משפחה שנמצא:', familyNumber); // הוסף את זה
+        
+        if (!familyNumber) {
+            showMessage('warning', 'לא נמצא מספר משפחה עבורך. פנה למנהל המערכת.', 'loginMessage');
+            return;
+        }
+        
+        console.log('קורא נתונים מגליון כוללות_צעטיל...'); // הוסף את זה
+        
+        // קריאת נתוני משפחה מגליון כוללות_צעטיל
+        const familyData = await readFromGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.MEMBERS);
+        
+        console.log('נתונים שהתקבלו:', familyData?.length, 'שורות'); // הוסף את זה
+        
+        const processedFamilyData = organizeFamilyDataFromSheets(familyData, familyNumber);
+        
+        console.log('נתוני משפחה מעובדים:', processedFamilyData); // הוסף את זה
+        
+        if (processedFamilyData) {
+            displayUserFamily(processedFamilyData);
+        } else {
+            showMessage('error', 'לא נמצאו נתוני משפחה מספר: ' + familyNumber, 'loginMessage');
+        }
+        
+    } catch (error) {
+        console.error('שגיאה בטעינת המשפחה:', error);
+        showMessage('error', 'שגיאה בטעינת המשפחה: ' + error.toString(), 'loginMessage');
+    }
+}
+
+function organizeFamilyDataFromSheets(data, familyNumber) {
+    if (!data || data.length === 0) return null;
+    
+    const familyMembers = [];
+    
+    console.log('מחפש משפחה מספר:', familyNumber, 'טיפוס:', typeof familyNumber);
+    
+    // חיפוש כל חברי המשפחה (מדלג על שורת כותרות)
+    for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        const ownFamily = row[24]; // עמודה Y - משפ_עצמי
+        const parentsFamily = row[25]; // עמודה Z - משפ_הורים
+        
+        if (ownFamily == familyNumber || parentsFamily == familyNumber) {
+            console.log('נמצא חבר משפחה:', {
+                שם: row[1],
+                מין: row[3],
+                משפ_עצמי: ownFamily,
+                משפ_הורים: parentsFamily,
+                ראש_משפחה: row[22] // עמודה W
+            });
+            
+            familyMembers.push({
+   
+    מספר_אישי: row[0],             // A  
+    שם_פרטי: row[1],               // B  
+    שם_אם: row[2],                 // C  
+    שם_משפחה: row[3],             // D  
+    מין: row[4],                   // E  
+    תאריך_לידה: row[5],           // F  
+    תאריך_נשואין: row[6],         // G  
+    פעיל: row[7],                  // H  
+    נשוי_רווק: row[8],            // I  
+    הערה: row[9],                  // J  
+    מספר_הזוג: row[10],           // K  
+    מספר_אב: row[11],             // L  
+    מספר_אם: row[12],             // M  
+    תאריך_כניסה: row[13],         // N  
+    שעת_כניסה: row[14],           // O  
+    הערה_פעילה: row[15],          // P  
+    מגורים: row[16],              // Q  
+    לא_אנש: row[17],               // R  
+    מספר_בן: row[18],             // S  
+    זוג: row[19],                  // T  
+    בנם: row[20],                  // U  
+    מיון: row[21],                 // V  
+    ראש_משפחה: row[22],           // W  
+    בן_בת: row[23],               // X  
+    משפ_עצמי: row[24],            // Y  
+    משפ_הורים: row[25],           // Z  
+    פרשה_בשמחת_עולם: row[26],     // AA  
+    הוגה_בתשסג: row[27],           // AB  
+    עיר_מגורים: row[28],          // AC  
+    הוגה_תשעד: row[29]            // AD
+});
+                  }
+    }
+    
+    console.log('סה"כ חברי משפחה נמצאו:', familyMembers.length);
+    
+    // ארגון נתוני המשפחה
+    const parents = familyMembers.filter(m => m.משפ_עצמי == familyNumber);
+    console.log('הורים נמצאו:', parents.length, parents);
+    
+    const father = parents.find(p => p.מין === 'זכר');
+    const mother = parents.find(p => p.מין === 'נקבה');
+    const children = familyMembers.filter(m => m.משפ_הורים == familyNumber);
+    
+    console.log('אב:', father?.שם_פרטי);
+    console.log('אם:', mother?.שם_פרטי);
+    console.log('ילדים:', children.length);
+    
+    return {
+        familyNumber: familyNumber,
+        lastName: father?.שם_משפחה || mother?.שם_משפחה || '',
+        city: father?.עיר_מגורים || mother?.עיר_מגורים || '',
+        father: father,
+        mother: mother,
+        children: children
+    };
+}
+// ===== טעינת נתוני המשפחה =====
+function loadUserFamilyData(familyNumber) {
+    google.script.run
+        .withSuccessHandler(function(familyData) {
+            if (familyData) {
+                displayUserFamily(familyData);
+            } else {
+                showMessage('error', 'לא נמצאו נתוני משפחה מספר: ' + familyNumber, 'loginMessage');
+            }
+        })
+        .withFailureHandler(function(error) {
+            showMessage('error', 'שגיאה בטעינת המשפחה: ' + error.toString(), 'loginMessage');
+        })
+        .getUserFamilyData(familyNumber);
+}
+
+// ===== הצגת המשפחה =====
+function displayUserFamily(familyData, isChildFamily = false) {
+    console.log('displayUserFamily נקראה עם:', familyData);
+    console.log('האם זו משפחת ילד?', isChildFamily);
+    
+    // מחיקת תצוגת משפחה קודמת אם קיימת
+    const existingContainer = document.getElementById('familyViewContainer');
+    if (existingContainer) {
+        existingContainer.remove();
+    }
+    
+    // הסתרת טופס ההתחברות
+    const forms = document.querySelectorAll('[class*="container"], [id*="login"], [id*="form"]');
+    forms.forEach(form => {
+        if (form.style.display !== 'none') {
+            form.style.display = 'none';
+        }
+    });
+    
+    // יצירת תצוגת המשפחה
+    const familyContainer = document.createElement('div');
+    familyContainer.id = 'familyViewContainer';
+    familyContainer.innerHTML = createFamilyViewHTML(familyData, isChildFamily);
+    
+    document.body.appendChild(familyContainer);
+    
+    console.log('המשפחה הוצגה בהצלחה');
+}
+
+// ===== יצירת HTML לתצוגת המשפחה =====
+function createFamilyViewHTML(family) {
+    // הפרדת ילדים לרווקים ונשואים
+    const singleChildren = family.children ? family.children.filter(child => 
+        !child['נשוי/רווק'] || child['נשוי/רווק'].includes('רווק')
+    ).sort((a, b) => {
+        const aNum = parseInt(a.מספר_בן) || 999;
+        const bNum = parseInt(b.מספר_בן) || 999;
+        return aNum - bNum;
+    }) : [];
+
+    const marriedChildren = family.children ? family.children.filter(child => 
+        child['נשוי/רווק'] && !child['נשוי/רווק'].includes('רווק')
+    ).sort((a, b) => {
+        const aNum = parseInt(a.מספר_בן) || 999;
+        const bNum = parseInt(b.מספר_בן) || 999;
+        return aNum - bNum;
+    }) : [];
+
+    return `
+        <div style="min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;" dir="rtl">
+            
+            <!-- שלום משתמש -->
+            <div style="position: fixed; top: 20px; right: 20px; background: rgba(76, 175, 80, 0.9); color: white; padding: 12px 20px; border-radius: 25px; font-weight: bold; z-index: 1000;">
+                👋 שלום ${currentUserName}
+            </div>
+
+            <!-- קונטיינר ראשי -->
+            <div style="max-width: 1200px; margin: 80px auto 0; background: white; border-radius: 15px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); overflow: hidden;">
+                
+                <!-- כותרת המשפחה -->
+                <div style="background: linear-gradient(45deg, #4CAF50, #45a049); color: white; padding: 30px; text-align: center; position: relative;">
+    
+    <!-- לחצנים מרחפים על השטח הירוק -->
+    <div style="position: absolute; top: 15px; left: 15px; display: flex; gap: 10px; z-index: 100;">
+        <button onclick="logoutUser()" style="background: #f44336; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); font-size: 14px;">
+            🚪 יציאה
+        </button>
+        
+        <button id="returnButton" onclick="returnToParentFamily()" style="background: #2196F3; color: white; border: none; padding: 10px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); font-size: 14px; transition: all 0.3s ease;"
+                onmouseover="this.style.background='#1976D2'; this.style.transform='scale(1.05)';"
+                onmouseout="this.style.background='#2196F3'; this.style.transform='scale(1)';">
+            ⬅️ חזור למשפחה המורחבת
+        </button>
+    </div>
+                    <h1 style="margin: 0; font-size: 2.5em;">👨‍👩‍👧‍👦 משפחת ${family.lastName || 'לא מוגדר'}</h1>
+                    <p style="margin: 10px 0 0 0; font-size: 1.2em;">משפחה מספר ${family.familyNumber}</p>
+                    ${family.city ? `<p style="margin: 5px 0 0 0;">🏙️ ${family.city}</p>` : ''}
+                </div>
+
+                <!-- תוכן המשפחה -->
+                <div style="padding: 30px;">
+                    
+                    <!-- ההורים -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+                        <!-- האב -->
+                        <div style="background: linear-gradient(135deg, #e3f2fd, #bbdefb); padding: 25px; border-radius: 12px; border: 2px solid #2196F3;">
+                            <h3 style="margin-top: 0; color: #1565c0; text-align: center;">👨 הבעל</h3>
+                            ${family.father ? `
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.3em; font-weight: bold; margin-bottom: 10px;">${family.father.שם_פרטי} ${family.father.שם_משפחה}</div>
+                                    <div style="font-size: 0.9em; color: #666; line-height: 1.5;">
+                                        <div>🆔 מספר אישי: ${family.father.מספר_אישי}</div>
+                                        ${family.father.תאריך_לידה ? `<div>🎂 תאריך לידה: ${family.father.תאריך_לידה}</div>` : ''}
+                                        ${family.father.שם_אם ? `<div>👩 שם האם: ${family.father.שם_אם}</div>` : ''}
+                                        ${family.father.עיר_מגורים ? `<div>🏠 עיר מגורים: ${family.father.עיר_מגורים}</div>` : ''}
+                                    </div>
+                                </div>
+                            ` : '<div style="text-align: center; color: #999;">אין נתוני בעל</div>'}
+                        </div>
+
+                        <!-- האישה -->
+                        <div style="background: linear-gradient(135deg, #fce4ec, #f8bbd9); padding: 25px; border-radius: 12px; border: 2px solid #e91e63;">
+                            <h3 style="margin-top: 0; color: #c2185b; text-align: center;">👩 האישה</h3>
+                            ${family.mother ? `
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.3em; font-weight: bold; margin-bottom: 10px;">${family.mother.שם_פרטי} ${family.mother.שם_משפחה}</div>
+                                    <div style="font-size: 0.9em; color: #666; line-height: 1.5;">
+                                        <div>🆔 מספר אישי: ${family.mother.מספר_אישי}</div>
+                                        ${family.mother.תאריך_לידה ? `<div>🎂 תאריך לידה: ${family.mother.תאריך_לידה}</div>` : ''}
+                                        ${family.mother.שם_אם ? `<div>👩 שם האם: ${family.mother.שם_אם}</div>` : ''}
+                                        ${family.mother.תאריך_נשואין ? `<div>💒 תאריך חתונה: ${family.mother.תאריך_נשואין}</div>` : ''}
+                                    </div>
+                                </div>
+                            ` : '<div style="text-align: center; color: #999;">אין נתוני אישה</div>'}
+                        </div>
+                    </div>
+
+                    <!-- ילדים רווקים -->
+                    ${singleChildren.length > 0 ? `
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="color: #ff6f00; margin-bottom: 15px; text-align: center; font-size: 1.5em;">
+                                👶 ילדים רווקים (${singleChildren.length}) - לפי סדר הלידה
+                            </h3>
+                            <div style="display: grid; gap: 15px;">
+                                ${singleChildren.map(child => createChildCard(child, 'single')).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- ילדים נשואים -->
+                    ${marriedChildren.length > 0 ? `
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="color: #2e7d32; margin-bottom: 15px; text-align: center; font-size: 1.5em;">
+                                💒 ילדים נשואים (${marriedChildren.length}) - לפי סדר הלידה
+                            </h3>
+                            <div style="display: grid; gap: 15px;">
+                                ${marriedChildren.map(child => createChildCard(child, 'married')).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- אין ילדים -->
+                    ${singleChildren.length === 0 && marriedChildren.length === 0 ? `
+                        <div style="text-align: center; color: #666; padding: 40px; font-style: italic;">
+                            <div style="font-size: 3em; margin-bottom: 20px;">👶</div>
+                            <div>אין ילדים רשומים במשפחה זו</div>
+                        </div>
+                    ` : ''}
+
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ===== יצירת כרטיס ילד =====
+function createChildCard(child, type) {
+    const childNumber = child.מספר_בן || '';
+    const benBat = child.מין === 'זכר' ? 'בן' : 'בת';
+    const motherName = child.שם_אם || '';
+    const fullChildName = motherName ? `${child.שם_פרטי} ${benBat} ${motherName}` : child.שם_פרטי;
+    
+    // הפרדה בין רווקים ונשואים לפי הנתונים
+    const isMarried = child.נשוי_רווק && !child.נשוי_רווק.includes('רווק') && child.משפ_עצמי && child.משפ_עצמי !== '0';
+    const cardType = isMarried ? 'married' : 'single';
+    
+    // קביעת צבע רקע
+    const bgColor = cardType === 'married' ? 
+        'linear-gradient(135deg, #f0fff0, #c8e6c8)' : 
+        'linear-gradient(135deg, #fff3e0, #ffe0b2)';
+    
+    const borderColor = cardType === 'married' ? '#4caf50' : '#ff9800';
+    
+    return `
+        <div style="
+            background: ${bgColor}; 
+            border: 2px solid ${borderColor}; 
+            border-radius: 12px; 
+            padding: 20px; 
+            transition: all 0.3s ease;
+            cursor: pointer;
+        " onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 25px rgba(0,0,0,0.15)';" 
+           onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="flex: 1;">
+                    <div style="font-size: 1.2em; font-weight: bold; color: #333; margin-bottom: 8px;">
+                        ${childNumber ? `${childNumber}. ` : ''}${fullChildName}
+                        ${cardType === 'married' ? ' 💒' : ' 👶'}
+                    </div>
+                    <div style="font-size: 0.9em; color: #666; line-height: 1.4;">
+                        <div>${child.מין} - מספר ${child.מספר_אישי}</div>
+                        ${child.תאריך_לידה ? `<div>🎂 ${child.תאריך_לידה}</div>` : ''}
+                        ${cardType === 'married' && child.נשוי_רווק ? `<div>💒 ${child.נשוי_רווק}</div>` : ''}
+                        ${cardType === 'married' && child.משפ_עצמי ? `<div>🏠 משפחה מספר ${child.משפ_עצמי}</div>` : ''}
+                        ${child.הערה ? `<div>📝 ${child.הערה}</div>` : ''}
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    ${cardType === 'married' && child.משפ_עצמי && child.משפ_עצמי !== '0' ? `
+                        <button onclick="viewChildFamily('${child.מספר_אישי}', '${child.שם_פרטי}', '${child.משפ_עצמי}')" 
+                                style="background: #2196F3; color: white; border: none; padding: 8px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;"
+                                onmouseover="this.style.background='#1976D2'; this.style.transform='scale(1.05)';"
+                                onmouseout="this.style.background='#2196F3'; this.style.transform='scale(1)';">
+                            🏠 צפה במשפחה
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+}
+let parentFamilyStack = [];
+
+// צפייה במשפחת ילד נשוי
+function viewChildFamily(childPersonalNumber, childName, childFamilyNumber) {
+    console.log('viewChildFamily נקראה:', {childPersonalNumber, childName, childFamilyNumber});
+    
+    // אם זה הפעם הראשונה שנכנסים למשפחת ילד, שמור את המשפחה המקורית
+    if (parentFamilyStack.length === 0) {
+        parentFamilyStack.push(currentUser.familyNumber);
+        console.log('שמירת משפחה מקורית במחסנית:', currentUser.familyNumber);
+    }
+    
+    // הצג את לחצן החזרה
+    const returnButton = document.getElementById('returnButton');
+    if (returnButton) {
+        returnButton.style.display = 'block';
+    }
+    
+    console.log('טוען משפחת ילד:', childFamilyNumber);
+    
+    // טען את משפחת הילד
+    loadUserFamilyFromSheets(null, childFamilyNumber);
+}
+
+// עדכון פונקציית הטעינה לקבל מספר משפחה
+async function loadUserFamilyFromSheets(userEmail, specificFamilyNumber = null) {
+    try {
+        // קבלת מספר המשפחה
+        const familyNumber = specificFamilyNumber || currentUser.familyNumber;
+        
+        console.log('מספר משפחה שנמצא:', familyNumber);
+        
+        if (!familyNumber) {
+            showMessage('warning', 'לא נמצא מספר משפחה עבורך. פנה למנהל המערכת.', 'loginMessage');
+            return;
+        }
+        
+        console.log('קורא נתונים מגליון כוללות_צעטיל...');
+        
+        const familyData = await readFromGoogleSheets(GOOGLE_SHEETS_CONFIG.RANGES.MEMBERS);
+        
+        console.log('נתונים שהתקבלו:', familyData?.length, 'שורות');
+        
+        const processedFamilyData = organizeFamilyDataFromSheets(familyData, familyNumber);
+        
+        console.log('נתוני משפחה מעובדים:', processedFamilyData);
+        
+        if (processedFamilyData) {
+            displayUserFamily(processedFamilyData, specificFamilyNumber !== null);
+        } else {
+            showMessage('error', 'לא נמצאו נתוני משפחה מספר: ' + familyNumber, 'loginMessage');
+        }
+        
+    } catch (error) {
+        console.error('שגיאה בטעינת המשפחה:', error);
+        showMessage('error', 'שגיאה בטעינת המשפחה: ' + error.toString(), 'loginMessage');
+    }
+}
+
+
+// חזרה למשפחה עליונה
+function returnToParentFamily() {
+    console.log('returnToParentFamily נקראה');
+    console.log('מחסנית נוכחית:', parentFamilyStack);
+    
+    if (parentFamilyStack.length === 0) {
+        // אין משפחה לחזור אליה - חזור למשפחה המקורית של המשתמש
+        console.log('חוזר למשפחה המקורית של המשתמש:', currentUser.familyNumber);
+        loadUserFamilyFromSheets(null, currentUser.familyNumber);
+        return;
+    }
+    
+    // חזור למשפחה המקורית (תמיד הראשונה במחסנית)
+    const originalFamilyNumber = parentFamilyStack[0];
+    
+    // נקה את המחסנית
+    parentFamilyStack = [];
+    
+    console.log('חוזר למשפחה המקורית:', originalFamilyNumber);
+    
+    // הסתר את לחצן החזרה
+    const returnButton = document.getElementById('returnButton');
+    if (returnButton) {
+        returnButton.style.display = 'none';
+    }
+    
+    // טען את המשפחה המקורית
+    loadUserFamilyFromSheets(null, originalFamilyNumber);
+}
+
+// ===== יצירת תוכן משפחה (לשימוש חוזר) =====
+function createFamilyContentHTML(family) {
+    const singleChildren = family.children ? family.children.filter(child => 
+        !child['נשוי/רווק'] || child['נשוי/רווק'].includes('רווק')
+    ).sort((a, b) => {
+        const aNum = parseInt(a.מספר_בן) || 999;
+        const bNum = parseInt(b.מספר_בן) || 999;
+        return aNum - bNum;
+    }) : [];
+
+    const marriedChildren = family.children ? family.children.filter(child => 
+        child['נשוי/רווק'] && !child['נשוי/רווק'].includes('רווק')
+    ).sort((a, b) => {
+        const aNum = parseInt(a.מספר_בן) || 999;
+        const bNum = parseInt(b.מספר_בן) || 999;
+        return aNum - bNum;
+    }) : [];
+
+    return `
+        <!-- ההורים -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+            <!-- האב -->
+            <div style="background: linear-gradient(135deg, #e3f2fd, #bbdefb); padding: 20px; border-radius: 12px; border: 2px solid #2196F3;">
+                <h3 style="margin-top: 0; color: #1565c0; text-align: center;">👨 הבעל</h3>
+                ${family.father ? `
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">${family.father.שם_פרטי} ${family.father.שם_משפחה}</div>
+                        <div style="font-size: 0.85em; color: #666; line-height: 1.4;">
+                            <div>🆔 ${family.father.מספר_אישי}</div>
+                            ${family.father.תאריך_לידה ? `<div>🎂 ${family.father.תאריך_לידה}</div>` : ''}
+                            ${family.father.שם_אם ? `<div>👩 ${family.father.שם_אם}</div>` : ''}
+                        </div>
+                    </div>
+                ` : '<div style="text-align: center; color: #999;">אין נתוני בעל</div>'}
+            </div>
+
+            <!-- האישה -->
+            <div style="background: linear-gradient(135deg, #fce4ec, #f8bbd9); padding: 20px; border-radius: 12px; border: 2px solid #e91e63;">
+                <h3 style="margin-top: 0; color: #c2185b; text-align: center;">👩 האישה</h3>
+                ${family.mother ? `
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">${family.mother.שם_פרטי} ${family.mother.שם_משפחה}</div>
+                        <div style="font-size: 0.85em; color: #666; line-height: 1.4;">
+                            <div>🆔 ${family.mother.מספר_אישי}</div>
+                            ${family.mother.תאריך_לידה ? `<div>🎂 ${family.mother.תאריך_לידה}</div>` : ''}
+                            ${family.mother.שם_אם ? `<div>👩 ${family.mother.שם_אם}</div>` : ''}
+                            ${family.mother.תאריך_נשואין ? `<div>💒 ${family.mother.תאריך_נשואין}</div>` : ''}
+                        </div>
+                    </div>
+                ` : '<div style="text-align: center; color: #999;">אין נתוני אישה</div>'}
+            </div>
+        </div>
+
+        <!-- ילדים רווקים -->
+        ${singleChildren.length > 0 ? `
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #ff6f00; margin-bottom: 15px; text-align: center;">👶 ילדים רווקים (${singleChildren.length})</h3>
+                <div style="display: grid; gap: 10px;">
+                    ${singleChildren.map(child => createSimpleChildCard(child, 'single')).join('')}
+                </div>
+            </div>
+        ` : ''}
+
+        <!-- ילדים נשואים -->
+        ${marriedChildren.length > 0 ? `
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #2e7d32; margin-bottom: 15px; text-align: center;">💒 ילדים נשואים (${marriedChildren.length})</h3>
+                <div style="display: grid; gap: 10px;">
+                    ${marriedChildren.map(child => createSimpleChildCard(child, 'married')).join('')}
+                </div>
+            </div>
+        ` : ''}
+
+        ${singleChildren.length === 0 && marriedChildren.length === 0 ? `
+            <div style="text-align: center; color: #666; padding: 20px; font-style: italic;">אין ילדים רשומים</div>
+        ` : ''}
+    `;
+}
+
+// ===== יציאה מהמערכת =====
+function logoutUser() {
+    if (confirm('האם אתה בטוח שברצונך לצאת מהמערכת?')) {
+        // הסרת תצוגת המשפחה
+        const familyContainer = document.getElementById('familyViewContainer');
+        if (familyContainer) {
+            familyContainer.remove();
+        }
+        
+        // הצגת טופס ההתחברות מחדש
+        document.getElementById('loginContainer').style.display = 'block';
+        
+        // ניקוי משתנים
+        currentUserEmail = '';
+        currentUserName = '';
+        currentFamilyNumber = null;
+        
+        showMessage('info', 'יצאת מהמערכת בהצלחה', 'loginMessage');
+    }
+}
+
+// ===== משתנים גלובליים =====
+let currentUserEmail = '';
+let currentUserName = '';
+let currentFamilyNumber = null;
     </script>
 </body>
 </html>
